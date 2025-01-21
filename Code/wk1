@@ -1,0 +1,32 @@
+int motorR_PWM = 37;
+int motorR_phase = 38;
+
+int motorL_PWM = 39 ;
+int motorL_phase = 20 ;
+
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(motorR_PWM,OUTPUT);
+  pinMode(motorL_PWM,OUTPUT);
+  pinMode(motorR_phase,OUTPUT);
+  pinMode(motorL_phase,OUTPUT);
+
+}
+
+void loop() {
+  digitalWrite(motorR_phase, LOW);  //forward 
+  digitalWrite(motorL_phase,LOW);
+  analogWrite(motorR_PWM, 100);  // set speed of motor 
+  analogWrite(motorL_PWM,97);
+  Serial.println("Forward");  // Display motor direction 
+  delay(5000);   //2 seconds 
+   
+  digitalWrite(motorR_phase, HIGH);  //Backward 
+  digitalWrite(motorL_phase, HIGH); 
+  analogWrite(motorR_PWM, 100);   // set speed of motor 
+  analogWrite(motorL_PWM, 97);    
+  Serial.println("Backward");  // Display motor direction 
+  delay(5000);   //2 seconds 
+
+}

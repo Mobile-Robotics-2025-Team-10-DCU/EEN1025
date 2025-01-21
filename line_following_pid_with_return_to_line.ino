@@ -21,6 +21,28 @@ float lastError = 0;
 int MAX_SPEED = 255;
 int BASE_SPEED = 150;
 
+//new
+int distance_sensor = 16;
+int distance = 0;
+
+//new code
+void stop_motor(){
+  analogWrite(motorR_PWM,0);
+  analogWrite(motorL_PWM,0); 
+  Serial.println("Motors stopped");
+  delay(2000);
+}
+
+void turn(){
+  digitalWrite(motorR_phase,LOW);
+  digitalWrite(motorL_phase,HIGH);
+  analogWrite(motorR_PWM, 150);  // set speed of motor 
+  analogWrite(motorL_PWM,145);
+  Serial.println("turning");
+  delay(950);
+}
+
+
 void setMotorSpeed(int leftSpeed, int rightSpeed) {
   analogWrite(motorR_PWM, constrain(rightSpeed, 0, MAX_SPEED));
   analogWrite(motorL_PWM, constrain(leftSpeed, 0, MAX_SPEED));
@@ -73,6 +95,10 @@ void setup() {
   pinMode(motorR_phase, OUTPUT);
   pinMode(motorL_PWM, OUTPUT);
   pinMode(motorL_phase, OUTPUT);
+
+  //distance sensor
+  pinMode(distance_sensor,INPUT);
+  
   Serial.begin(9600);
 }
 

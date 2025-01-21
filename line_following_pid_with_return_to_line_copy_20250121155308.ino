@@ -194,12 +194,18 @@ void setup() {
 }
 
 void loop() {
+  
   nodeDetection();
   if (nodeDetected == true) {
     setMotorSpeed(0, 0);
-    delay(1000);
-    setMotorSpeed(100, 100);
-    delay(300);
+    delay(100);
+    /*BASE_SPEED = 170; //Speeds up for first part after node. Can be removed.
+    for (int i = 0; i < 30; i++) {
+      followCorrection();
+      delay(2);
+    }*/
+    BASE_SPEED = 120;
+    nodeDetected = false;
   }
 
   followCorrection();

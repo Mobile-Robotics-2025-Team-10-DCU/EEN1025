@@ -17,7 +17,7 @@ void turn(){
   digitalWrite(motorR_phase,LOW);
   digitalWrite(motorL_phase,HIGH);
   analogWrite(motorR_PWM, 150);  // set speed of motor 
-  analogWrite(motorL_PWM,145);
+  analogWrite(motorL_PWM,148);
   Serial.println("turning");
   delay(950);
 }

@@ -19,7 +19,7 @@ float correction;
 float lastError = 0;
 
 int MAX_SPEED = 255;
-int BASE_SPEED = 150;
+int BASE_SPEED = 120;
 
 //new
 int distance_sensor = 16;
@@ -144,27 +144,24 @@ void followCorrection() {
 void nodeDetection() {
   nodeDetected = false;
   
-  AnalogValue[1] = analogRead(AnalogPin[1]);
-  AnalogValueMinus[1] = 5000 - AnalogValue[1];
-  AnalogValue[3] = analogRead(AnalogPin[3]);
-  AnalogValueMinus[3] = 5000 - AnalogValue[3];
-  AnalogValue[0] = analogRead(AnalogPin[0]);
-  AnalogValueMinus[0] = 5000 - AnalogValue[0];
-  AnalogValue[4] = analogRead(AnalogPin[4]);
-  AnalogValueMinus[4] = 5000 - AnalogValue[4];
+  int totalValue = 0;
 
-  if (AnalogValueMinus[1] > 3500) {
-    if (AnalogValueMinus[3] > 3500) {
+  for (int i = 0; i < 5; i++) {
+    AnalogValue[i] = analogRead(AnalogPin[i]);
+    AnalogValueMinus[i] = 5000 - AnalogValue[i];
+    totalValue += AnalogValueMinus[i];
+  }
+
+  if (totalValue > 15800) {
       nodeDetected = true;
       nodes++;
-    }
-    else {
-      nodeDetected = false;
-    } 
   }
   else {
     nodeDetected = false;
   }
+
+  Serial.print(" Total Sensor Value: ");
+  Serial.print(totalValue);
 }
 
 void parking() {
@@ -200,9 +197,9 @@ void loop() {
   nodeDetection();
   if (nodeDetected == true) {
     setMotorSpeed(0, 0);
-    delay(200);
+    delay(1000);
     setMotorSpeed(100, 100);
-    delay(100);
+    delay(300);
   }
 
   followCorrection();

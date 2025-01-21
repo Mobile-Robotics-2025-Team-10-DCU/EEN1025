@@ -103,6 +103,7 @@ void setup() {
 }
 
 void loop() {
+  distance = analogRead(distance_sensor);
   if (distance > 2800){
     stop_motor();
     turn();

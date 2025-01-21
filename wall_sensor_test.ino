@@ -16,8 +16,8 @@ void stop_motor(){
 void turn(){
   digitalWrite(motorR_phase,LOW);
   digitalWrite(motorL_phase,HIGH);
-  analogWrite(motorR_PWM, 150);  // set speed of motor 
-  analogWrite(motorL_PWM,145);
+  analogWrite(motorR_PWM, 120);  // set speed of motor 
+  analogWrite(motorL_PWM,115);
   Serial.println("turning");
   delay(950);
 }
@@ -42,7 +42,7 @@ void loop() {
   digitalWrite(motorR_phase, LOW);  //forward 
   digitalWrite(motorL_phase,LOW);
   analogWrite(motorR_PWM, 150);  // set speed of motor 
-  analogWrite(motorL_PWM,145);
+  analogWrite(motorL_PWM,148);
   Serial.println("Forward");  // Display motor direction  
    
   /*digitalWrite(motorR_phase, HIGH);  //Backward 

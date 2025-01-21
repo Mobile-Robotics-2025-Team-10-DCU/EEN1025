@@ -103,6 +103,11 @@ void setup() {
 }
 
 void loop() {
+  if (distance > 2800){
+    stop_motor();
+    turn();
+  }
+  
   bool lineDetected = false;
 
   for (int i = 0; i < 5; i++) {

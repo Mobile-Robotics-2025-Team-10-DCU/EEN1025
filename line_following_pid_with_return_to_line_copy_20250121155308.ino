@@ -2,6 +2,29 @@ int AnalogValue[5] = {0, 0, 0, 0, 0};
 int AnalogValueMinus[5] = {0, 0, 0, 0, 0};
 int AnalogPin[5] = {4, 5, 6, 7, 15};
 
+const bool nodeConnection[7][7] = {
+  {0, 0, 0, 0, 1, 1, 0}, 
+  {0, 0, 0, 0, 0, 1, 1}, 
+  {0, 0, 0, 1, 0, 1, 0}, 
+  {0, 0, 1, 0, 0, 0, 1},
+  {1, 0, 0, 0, 0, 0, 1}, 
+  {1, 1, 1, 0, 0, 0, 0},
+  {0, 1, 0, 1, 1, 0, 0}
+};
+
+bool nodeObstruction[7][7] = {
+  {0, 0, 0, 0, 0, 0, 0}, 
+  {0, 0, 0, 0, 0, 0, 0}, 
+  {0, 0, 0, 0, 0, 0, 0}, 
+  {0, 0, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0}, 
+  {0, 0, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0}
+};
+
+int nodeCurrent = -1;
+int nodeTarget = -1;
+
 int motorL_PWM = 37;
 int motorL_phase = 38;
 int motorR_PWM = 39;
@@ -28,6 +51,7 @@ int distance = 0;
 bool nodeDetected = false;
 bool parked = false;
 int nodes = 0;
+bool set = 1;
 
 //new code
 void stop_motor() {
@@ -37,15 +61,23 @@ void stop_motor() {
   delay(500);
 }
 
-void turn() {
+void turnLeft() {
   digitalWrite(motorR_phase,LOW);
   digitalWrite(motorL_phase,HIGH);
   analogWrite(motorR_PWM, 150);  // set speed of motor 
   analogWrite(motorL_PWM,145);
-  Serial.println("turning");
-  delay(950);
+  Serial.println("turning left");
+  delay(500);
 }
 
+void turnRight() {
+  digitalWrite(motorR_phase,HIGH);
+  digitalWrite(motorL_phase,LOW);
+  analogWrite(motorR_PWM, 145);  // set speed of motor 
+  analogWrite(motorL_PWM,150);
+  Serial.println("turning right");
+  delay(500);
+}
 
 void setMotorSpeed(int leftSpeed, int rightSpeed) {
   analogWrite(motorR_PWM, constrain(rightSpeed, 0, MAX_SPEED));
@@ -96,7 +128,8 @@ void obstacle() {
   distance = analogRead(distance_sensor);
   if (distance > 2800) {
     stop_motor();
-    turn();
+    turnLeft();
+    turnLeft();
   }
 }
 
@@ -105,7 +138,8 @@ void obstacleParked() {
   if (distance > 3200) {
     parked = true;
     stop_motor();
-    turn();
+    //turnLeft();
+    //turnLeft();
   }
 }
 
@@ -173,8 +207,26 @@ void parking() {
       obstacleParked();
       if (parked == true) {
         setMotorSpeed(0, 0);
+        delay(10000);
       }
     }
+  }
+}
+
+void nodeCount() {
+  nodeDetection();
+  if (nodeDetected == true) {
+    setMotorSpeed(0, 0);
+    delay(100);
+    /*BASE_SPEED = 170; //Speeds up for first part after node. Can be removed.
+    for (int i = 0; i < 30; i++) {
+      followCorrection();
+      delay(2);
+    }*/
+    BASE_SPEED = 120;
+    followCorrection();
+    delay(200);
+    nodeDetected = false;
   }
 }
 
@@ -194,19 +246,16 @@ void setup() {
 }
 
 void loop() {
-  
-  nodeDetection();
-  if (nodeDetected == true) {
-    setMotorSpeed(0, 0);
-    delay(100);
-    /*BASE_SPEED = 170; //Speeds up for first part after node. Can be removed.
-    for (int i = 0; i < 30; i++) {
-      followCorrection();
-      delay(2);
-    }*/
-    BASE_SPEED = 120;
-    nodeDetected = false;
+  if (nodes == 2 && set == 1) {
+    turnLeft();
+    set = 0;
   }
+
+  if (nodes == 2 && set == 0) {
+    parking();
+  }
+
+  nodeCount();
 
   followCorrection();
 

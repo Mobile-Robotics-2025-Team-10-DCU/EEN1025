@@ -1,29 +1,37 @@
+#include <Arduino.h>
+
 int AnalogValue[5] = {0, 0, 0, 0, 0};
 int AnalogValueMinus[5] = {0, 0, 0, 0, 0};
 int AnalogPin[5] = {4, 5, 6, 7, 15};
 
-const bool nodeConnection[7][7] = {
-  {0, 0, 0, 0, 1, 1, 0}, 
-  {0, 0, 0, 0, 0, 1, 1}, 
-  {0, 0, 0, 1, 0, 1, 0}, 
+const int nodeConnection[7][7] = {
+  {0, 0, 0, 0, 2, 1, 0},
+  {0, 0, 0, 0, 0, 1, 1},
+  {0, 0, 0, 1, 0, 1, 0},
   {0, 0, 1, 0, 0, 0, 1},
-  {1, 0, 0, 0, 0, 0, 1}, 
-  {1, 1, 1, 0, 0, 0, 0},
+  {2, 0, 0, 1, 0, 0, 1},
+  {1, 1, 1, 0, 0, 0, 1},
   {0, 1, 0, 1, 1, 0, 0}
 };
 
 bool nodeObstruction[7][7] = {
-  {0, 0, 0, 0, 0, 0, 0}, 
-  {0, 0, 0, 0, 0, 0, 0}, 
-  {0, 0, 0, 0, 0, 0, 0}, 
   {0, 0, 0, 0, 0, 0, 0},
-  {0, 0, 0, 0, 0, 0, 0}, 
+  {0, 0, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0},
   {0, 0, 0, 0, 0, 0, 0},
   {0, 0, 0, 0, 0, 0, 0}
 };
 
-int nodeCurrent = -1;
-int nodeTarget = -1;
+int nodeCurrent = -1;     
+int previousNode = -1;    
+int currentEdgeStart = -1;
+int currentEdgeEnd = -1;
+
+int path[] = {1, 5, 6, 4, 3};
+int pathLength = sizeof(path) / sizeof(path[0]);
+int currentPathIndex = 0;
 
 int motorL_PWM = 37;
 int motorL_phase = 38;
@@ -34,48 +42,115 @@ float Kp = 200;
 float Ki = 0.01;
 float Kd = 0.01;
 
-float position;
-float error;
-float integral = 0;
-float derivative;
-float correction;
-float lastError = 0;
-
+float position, error, integral = 0, derivative, correction, lastError = 0;
 int MAX_SPEED = 255;
 int BASE_SPEED = 120;
 
-//new
 int distance_sensor = 16;
 int distance = 0;
 
 bool nodeDetected = false;
 bool parked = false;
 int nodes = 0;
-bool set = 1;
 
-//new code
+const int INF = 1000000;
+int dijkstraPrevious[7];
+
+
+void dijkstra(int start) {
+  int distances[7];
+  bool visited[7] = {false};
+
+  for (int i = 0; i < 7; i++) {
+    distances[i] = INF;
+    dijkstraPrevious[i] = -1;
+  }
+  distances[start] = 0;
+
+  for (int count = 0; count < 7; count++) {
+    int u = -1;
+    int minDist = INF;
+    for (int i = 0; i < 7; i++) {
+      if (!visited[i] && distances[i] < minDist) {
+        minDist = distances[i];
+        u = i;
+      }
+    }
+    if (u == -1) break;
+    visited[u] = true;
+
+    for (int v = 0; v < 7; v++) {
+      if (nodeConnection[u][v] > 0 && !nodeObstruction[u][v]) {
+        if (distances[u] + nodeConnection[u][v] < distances[v]) {
+          distances[v] = distances[u] + nodeConnection[u][v];
+          dijkstraPrevious[v] = u;
+        }
+      }
+    }
+  }
+}
+
+int getNextNode(int current) {
+  dijkstra(current);
+  int path[7];
+  int at = path[currentPathIndex];
+  int pathLength = 0;
+
+  while (at != -1 && pathLength < 7) {
+    path[pathLength++] = at;
+    at = dijkstraPrevious[at];
+  }
+
+  if (path[pathLength-1] != current) return -1;
+  return (pathLength >= 2) ? path[pathLength-2] : -1;
+}
+
+String determineTurnDirection(int current, int prev, int next) {
+  int possibleNext[7];
+  int count = 0;
+
+  for (int j = 0; j < 7; j++) {
+    if (j != prev && nodeConnection[current][j] > 0 && !nodeObstruction[current][j]) {
+      possibleNext[count++] = j;
+    }
+  }
+
+  for (int i = 0; i < count; i++) {
+    if (possibleNext[i] == next) {
+      if (count == 1) return "straight";
+      switch(i) {
+        case 0: return "left";
+        case 1: return "straight";
+        case 2: return "right";
+        default: return "unknown";
+      }
+    }
+  }
+  return "unknown";
+}
+
 void stop_motor() {
-  analogWrite(motorR_PWM,0);
-  analogWrite(motorL_PWM,0); 
+  analogWrite(motorR_PWM, 0);
+  analogWrite(motorL_PWM, 0);
   Serial.println("Motors stopped");
   delay(500);
 }
 
 void turnLeft() {
-  digitalWrite(motorR_phase,LOW);
-  digitalWrite(motorL_phase,HIGH);
-  analogWrite(motorR_PWM, 150);  // set speed of motor 
-  analogWrite(motorL_PWM,145);
-  Serial.println("turning left");
+  digitalWrite(motorR_phase, LOW);
+  digitalWrite(motorL_phase, HIGH);
+  analogWrite(motorR_PWM, 150);
+  analogWrite(motorL_PWM, 145);
+  Serial.println("Turning left");
   delay(500);
 }
 
 void turnRight() {
-  digitalWrite(motorR_phase,HIGH);
-  digitalWrite(motorL_phase,LOW);
-  analogWrite(motorR_PWM, 145);  // set speed of motor 
-  analogWrite(motorL_PWM,150);
-  Serial.println("turning right");
+  digitalWrite(motorR_phase, HIGH);
+  digitalWrite(motorL_phase, LOW);
+  analogWrite(motorR_PWM, 145);
+  analogWrite(motorL_PWM, 150);
+  Serial.println("Turning right");
   delay(500);
 }
 
@@ -87,7 +162,7 @@ void setMotorSpeed(int leftSpeed, int rightSpeed) {
 void lineFollowPID() {
   digitalWrite(motorR_phase, LOW);
   digitalWrite(motorL_phase, LOW);
-  
+
   int totalValue = 0;
   int weightedSum = 0;
 
@@ -110,74 +185,33 @@ void lineFollowPID() {
   setMotorSpeed(leftSpeed, rightSpeed);
 }
 
-void debugPID() {
-  Serial.print(" ");
-  for (int i = 0; i < 5; i++) {
-    Serial.print(AnalogValueMinus[i]);
-    Serial.print(" ");
-  }
-  Serial.print(" Position: ");
-  Serial.print(position);
-  Serial.print(" Error: ");
-  Serial.print(error);
-  Serial.print(" Correction: ");
-  Serial.println(correction);
-}
-
 void obstacle() {
   distance = analogRead(distance_sensor);
   if (distance > 2800) {
+    if (currentEdgeStart != -1 && currentEdgeEnd != -1) {
+      nodeObstruction[currentEdgeStart][currentEdgeEnd] = 1;
+      nodeObstruction[currentEdgeEnd][currentEdgeStart] = 1;
+      Serial.println("Edge blocked. Recalculating...");
+
+      currentEdgeStart = -1;
+      currentEdgeEnd = -1;
+
+      digitalWrite(motorR_phase, HIGH);
+      digitalWrite(motorL_phase, HIGH);
+      setMotorSpeed(150, 150);
+      delay(1000);
+      stop_motor();
+
+      dijkstra(nodeCurrent);
+    }
     stop_motor();
     turnLeft();
     turnLeft();
   }
-}
-
-void obstacleParked() {
-  distance = analogRead(distance_sensor);
-  if (distance > 3200) {
-    parked = true;
-    stop_motor();
-    //turnLeft();
-    //turnLeft();
-  }
-}
-
-void followCorrection() {  
-  obstacle();
-  
-  bool lineDetected = false;
-
-  for (int i = 0; i < 5; i++) {
-    AnalogValue[i] = analogRead(AnalogPin[i]);
-    AnalogValueMinus[i] = 5000 - AnalogValue[i];
-    if (AnalogValueMinus[i] > 2200) {
-      lineDetected = true;
-      break;
-    }
-    else {
-      lineDetected = false;
-    }
-  }
-
-  if (lineDetected) {
-    lineFollowPID();
-  } 
-  else {
-    digitalWrite(motorR_phase, HIGH);
-    digitalWrite(motorL_phase, HIGH);
-    setMotorSpeed(100, 100);
-    delay(300);
-    setMotorSpeed(0, 0);
-    delay(100);
-  }
-
-  debugPID();
 }
 
 void nodeDetection() {
   nodeDetected = false;
-  
   int totalValue = 0;
 
   for (int i = 0; i < 5; i++) {
@@ -186,81 +220,79 @@ void nodeDetection() {
     totalValue += AnalogValueMinus[i];
   }
 
-  if (totalValue > 15800) {
-      nodeDetected = true;
-      nodes++;
-  }
-  else {
-    nodeDetected = false;
-  }
-
-  Serial.print(" Total Sensor Value: ");
-  Serial.print(totalValue);
-}
-
-void parking() {
-  nodeDetection();
-  parked = false;
-  if (nodeDetected == true) {
-    setMotorSpeed(150, 150);
-    while (parked == false) {
-      obstacleParked();
-      if (parked == true) {
-        setMotorSpeed(0, 0);
-        delay(10000);
-      }
-    }
-  }
+  nodeDetected = (totalValue > 15800);
+  if (nodeDetected) nodes++;
+  Serial.print("Total Sensor Value: ");
+  Serial.println(totalValue);
 }
 
 void nodeCount() {
   nodeDetection();
-  if (nodeDetected == true) {
+  if (nodeDetected) {
     setMotorSpeed(0, 0);
     delay(100);
-    /*BASE_SPEED = 170; //Speeds up for first part after node. Can be removed.
-    for (int i = 0; i < 30; i++) {
-      followCorrection();
-      delay(2);
-    }*/
+
+    if (nodeCurrent == -1) {
+      nodeCurrent = path[0];
+      previousNode = -1;
+      currentPathIndex = 0;
+      dijkstra(nodeCurrent);
+    } else {
+      if (nodeCurrent == path[currentPathIndex]) {
+        currentPathIndex++;
+        if (currentPathIndex >= pathLength) {
+          Serial.println("Path completed!");
+          while(1);
+        }
+        dijkstra(nodeCurrent);
+      }
+
+      int nextNode = getNextNode(nodeCurrent);
+      if (nextNode == -1) {
+        Serial.println("No path!");
+        return;
+      }
+
+      currentEdgeStart = nodeCurrent;
+      currentEdgeEnd = nextNode;
+
+      String turn = determineTurnDirection(nodeCurrent, previousNode, nextNode);
+      Serial.print("Turn: ");
+      Serial.println(turn);
+
+      if (turn == "left") {
+        turnLeft();
+      } else if (turn == "right") {
+        turnRight();
+      } else {
+        setMotorSpeed(BASE_SPEED, BASE_SPEED);
+        delay(300);
+      }
+
+      previousNode = nodeCurrent;
+      nodeCurrent = nextNode;
+    }
+
     BASE_SPEED = 120;
-    followCorrection();
+    lineFollowPID();
     delay(200);
     nodeDetected = false;
   }
 }
 
 void setup() {
-  for (int i = 0; i < 5; i++) {
-    pinMode(AnalogPin[i], INPUT);
-  }
+  for (int i = 0; i < 5; i++) pinMode(AnalogPin[i], INPUT);
   pinMode(motorR_PWM, OUTPUT);
   pinMode(motorR_phase, OUTPUT);
   pinMode(motorL_PWM, OUTPUT);
   pinMode(motorL_phase, OUTPUT);
-
-  //distance sensor
-  pinMode(distance_sensor,INPUT);
-  
+  pinMode(distance_sensor, INPUT);
   Serial.begin(9600);
 }
 
 void loop() {
-  if (nodes == 2 && set == 1) {
-    turnLeft();
-    set = 0;
-  }
-
-  if (nodes == 2 && set == 0) {
-    parking();
-  }
-
   nodeCount();
-
-  followCorrection();
-
+  lineFollowPID();
+  obstacle();
   delay(2);
-
-  Serial.print(" Nodes: ");
-  Serial.print(nodes);
 }

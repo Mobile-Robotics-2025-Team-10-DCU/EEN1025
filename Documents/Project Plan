@@ -1,1 +1,109 @@
+Project Plan
+Week 1
+Objective: build robot and make move forward and backwards
+Video: Nikita
+
+Tuesday
+(morning)
+-create google drive, planner,whatsapp group//
+-set up arduino etc//
+-make project plan//
+-make contract//
+-build robot//
+-build circuit//
+-move forward and backwards//
+-github//
+
+(afternoon)
+-test code forward/backward//
+-test turning etc//
+-update all repositories//
+-everyone get github//
+-test sensors//
+
+Thursday
+-make video
+-demonstration//
+-brainstorm next week//
+-code for turning//
+-reconstruct robot
+-fix the turn at the start and fine tune straight driving.//
+-test node detection
+
+
+
+
+
+
+
+Week 2
+Objective: Robot follow white line autonomously, update repository
+Video: Robyn
+
+Tuesday
+(morning)
+Group meeting with minutes recorded//
+Test sensors //
+Test code to follow the white line// 
+Test parking sensor to stop at the wall and turn //
+Code sensors to stop at junctions// 
+Set up github //
+
+
+-detect node and stop//
+-fine tune reversing and sensing black//
+-add in code for stopping at wall and turning - chloe and robyn//
+-code for parking
+-more robust find line code
+-start on code for detection of nodes
+-safety assessment
+-sensor calibration
+
+
+(afternoon)
+Finetune turning/stopping etc for smooth driving 
+Connect to cloud server 
+Update repositories 
+Parking code
+-start on innovation - buzzer
+
+
+Thursday
+
+
+
+
+Week 3
+Objective: connect to cloud server and send messages, show robot is capable of following line and turning at a junction
+Video: Chloe
+
+Tuesday
+(morning)
+Weekly meeting with minutes // 
+Update GitHub with new code //
+Finalise ethics report //
+Connect to server //
+Send messages to server //
+Detect junctions  //
+Code to turn at junctions // 
+
+(afternoon)
+Innovation design matrix
+Start innovation design 
+Research path following algorithms
+Finialise server code 
+
+Thursday
+Integrate server and nodes detection code
+Start on innovation
+Week 4
+Objective: communicate with cloud server over wifi, transmit current group number and position to the server and get the next target from the server, park the robot as near as possible to wall
+Video: Evan
+
+Tuesday
+(morning)
+
+(afternoon)
+
+Thursday
 

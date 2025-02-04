@@ -26,35 +26,26 @@ int distance = 0;
 
 // Navigation variables
 bool nodeDetected = false;
-int nodesVisited = 0;
-int currentNode = -1;
-int previousNode = -1;
+int nodesVisited = 1;
+int currentNode = 0;
+int previousNode = 4;  // Robot starts from direction of node 4
+bool firstNode = true;  // Flag to handle first node specially
 
-//innovation motion start
-bool motiondetection = false;
-unsigned long motionStartTime = 0;  
-const unsigned long motionThreshold = 1500;
-
-void startmotion() {
-  distance = analogRead(distance_sensor);
-  if (distance > 2200) {
-    motiondetection=true;
-    } 
-}
-
-// Sample path (will be provided by server)
-int path[] = {3, 6, 1, 5, 0, 5, 2};  // Example path
-int pathLength;
+// Path planning variables
+int originalPath[] = {3, 1, 4, 0, 2, 0};  // Original waypoints
+int optimizedPath[21];  // Will store the complete optimized path
+int optimizedPathLength;
+bool pathOptimized = false;
 
 // Node connection layout with distances
 const int nodeConnection[7][7] = {
-  {0, 0, 0, 0, 2, 1, 0},
-  {0, 0, 0, 0, 0, 1, 1},
-  {0, 0, 0, 1, 0, 1, 0},
-  {0, 0, 1, 0, 0, 0, 1},
-  {2, 0, 0, 1, 0, 0, 1},
-  {1, 1, 1, 0, 0, 0, 1},
-  {0, 1, 0, 1, 1, 0, 0}
+  {0, 0, 0, 0, 2, 2, 0},
+  {0, 0, 0, 0, 0, 2, 1},
+  {0, 0, 0, 2, 0, 2, 0},
+  {0, 0, 2, 0, 0, 0, 4},
+  {2, 0, 0, 0, 0, 0, 4},
+  {2, 2, 2, 0, 0, 0, 0},
+  {0, 1, 0, 4, 4, 0, 0}
 };
 
 // Define turn directions for each valid node connection
@@ -83,9 +74,9 @@ const int nodeTurns[7][7][7] = {
     {{-1,-1,-1,-1,-1,-1,-1},     // from 0
      {-1,-1,-1,-1,-1,-1,-1},  // from 1
      {-1,-1,-1,-1,-1,-1,-1},  // from 2 (invalid)
-     {-1,-1,-1,-1,-1,0,-1},   // from 3 (to 5=left)
+     {-1,-1,-1,3,-1,0,-1},   // from 3 (to 5=left)
      {-1,-1,-1,-1,-1,-1,-1},  // from 4
-     {-1,-1,-1,0,-1,-1,-1},   // from 5 (to 3=right)
+     {-1,-1,-1,0,-1,3,-1},   // from 5 (to 3=right)
      {-1,-1,-1,-1,-1,-1,-1}}, // from 6
 
     // Node 3 (bottom right)
@@ -124,6 +115,115 @@ const int nodeTurns[7][7][7] = {
      {-1,-1,-1,-1,-1,-1,-1},     // from 5 (to 3/4=straight, to 1=left)
      {-1,-1,-1,-1,-1,-1,-1}}  // from 6 (invalid)
 };
+
+// Function to find the vertex with minimum distance
+int minDistance(int dist[], bool visited[], int V) {
+    int min = INT_MAX;
+    int min_index = -1;
+    
+    for (int v = 0; v < V; v++) {
+        if (!visited[v] && dist[v] <= min) {
+            min = dist[v];
+            min_index = v;
+        }
+    }
+    return min_index;
+}
+
+// Function to get the path from source to destination
+void getPath(int parent[], int dest, int path[], int& pathLength) {
+    if (parent[dest] == -1) {
+        path[0] = dest;
+        pathLength = 1;
+        return;
+    }
+    
+    getPath(parent, parent[dest], path, pathLength);
+    path[pathLength] = dest;
+    pathLength++;
+}
+
+// Function to find the shortest path between two nodes
+void findShortestPath(int start, int end, int path[], int& pathLength) {
+    const int V = 7; // Number of vertices
+    int dist[V];     // Distance array
+    bool visited[V]; // Visited array
+    int parent[V];   // Parent array to reconstruct path
+    
+    // Initialize arrays
+    for (int i = 0; i < V; i++) {
+        dist[i] = INT_MAX;
+        visited[i] = false;
+        parent[i] = -1;
+    }
+    
+    dist[start] = 0;
+    
+    // Find shortest path for all vertices
+    for (int count = 0; count < V - 1; count++) {
+        int u = minDistance(dist, visited, V);
+        visited[u] = true;
+        
+        for (int v = 0; v < V; v++) {
+            if (!visited[v] && nodeConnection[u][v] && 
+                dist[u] != INT_MAX && 
+                dist[u] + nodeConnection[u][v] < dist[v]) {
+                dist[v] = dist[u] + nodeConnection[u][v];
+                parent[v] = u;
+            }
+        }
+    }
+    
+    // Get the path
+    pathLength = 0;
+    getPath(parent, end, path, pathLength);
+}
+
+// Function to calculate total distance of a path
+int calculatePathDistance(int path[], int pathLength) {
+    int totalDistance = 0;
+    for (int i = 0; i < pathLength - 1; i++) {
+        totalDistance += nodeConnection[path[i]][path[i + 1]];
+    }
+    return totalDistance;
+}
+
+// Function to find optimal route through multiple waypoints
+void findOptimalRoute(int waypoints[], int numWaypoints, int finalPath[], int& finalPathLength) {
+    finalPathLength = 0;
+    int tempPath[7];  // Temporary array for each segment
+    int tempLength;
+    
+    // Process each consecutive pair of waypoints
+    for (int i = 0; i < numWaypoints - 1; i++) {
+        // Find shortest path between current waypoint pair
+        findShortestPath(waypoints[i], waypoints[i + 1], tempPath, tempLength);
+        
+        // Add path to final route (skip last node except for final segment to avoid duplicates)
+        if (i < numWaypoints - 2) {
+            tempLength--; // Don't include the last node as it will be the start of next segment
+        }
+        
+        // Copy segment to final path
+        for (int j = 0; j < tempLength; j++) {
+            finalPath[finalPathLength++] = tempPath[j];
+        }
+    }
+}
+
+// Function to print the route details
+void printRoute(int path[], int pathLength) {
+    Serial.println("Optimal Route:");
+    for (int i = 0; i < pathLength; i++) {
+        Serial.print(path[i]);
+        if (i < pathLength - 1) {
+            Serial.print(" -> ");
+        }
+    }
+    Serial.println();
+    Serial.print("Total Distance: ");
+    Serial.println(calculatePathDistance(path, pathLength));
+}
 
 void setMotorSpeed(int leftSpeed, int rightSpeed) {
   analogWrite(motorR_PWM, constrain(rightSpeed, 0, MAX_SPEED));
@@ -214,32 +314,66 @@ String getNextTurn(int current, int prev, int next) {
 }
 
 void handleNode() {
-  if (nodesVisited >= pathLength) {
-    stop_motor();
-    while(1); // End of path
-  }
+    if (!pathOptimized) {
+        stop_motor();
+        while(1); // Safety stop if path not optimized
+        return;
+    }
 
-  currentNode = path[nodesVisited];
-  
-  if (nodesVisited < pathLength - 1) {
-    int nextNode = path[nodesVisited + 1];
+    if (firstNode) {
+        // Special handling for first node
+        firstNode = false;
+        currentNode = 0;  // First node will be 0
+        previousNode = 4; // Coming from direction of node 4
+        nodesVisited = 0;
+        
+        // If 0 is not our first waypoint, we need to turn appropriately
+        if (optimizedPath[0] != 0) {
+            String turn = getNextTurn(0, 4, optimizedPath[0]);
+            if (turn == "left") {
+                turnLeft();
+            } else if (turn == "right") {
+                turnRight();
+            } else if (turn == "around") {
+                turnAround();
+            }
+        }
+        return;
+    }
+
+    if (nodesVisited >= optimizedPathLength - 1) {
+        stop_motor();
+        while(1); // End of path
+        return;
+    }
+
+    currentNode = optimizedPath[nodesVisited];
+    int nextNode = optimizedPath[nodesVisited + 1];
+    
+    // Get the turn direction based on current position and next node
     String turn = getNextTurn(currentNode, previousNode, nextNode);
     
+    // Execute the turn
     if (turn == "left") {
-      turnLeft();
+        turnLeft();
     } else if (turn == "right") {
-      turnRight();
+        turnRight();
     } else if (turn == "around") {
-      turnAround();
+        turnAround();
     } else {
-      // Go straight
-      setMotorSpeed(BASE_SPEED, BASE_SPEED);
-      delay(300);
+        // Go straight
+        setMotorSpeed(BASE_SPEED, BASE_SPEED);
+        delay(300);
     }
-  }
-  
-  previousNode = currentNode;
-  nodesVisited++;
+    
+    previousNode = currentNode;
+    nodesVisited++;
+    
+    // Print debug information
+    Serial.print("Visited node: ");
+    Serial.print(currentNode);
+    Serial.print(" Next node: ");
+    Serial.println(nextNode);
 }
 
 void detectNode() {
@@ -260,29 +394,40 @@ void detectNode() {
 }
 
 void setup() {
-  // Initialize pins
-  for (int i = 0; i < 5; i++) pinMode(AnalogPin[i], INPUT);
-  pinMode(motorR_PWM, OUTPUT);
-  pinMode(motorR_phase, OUTPUT);
-  pinMode(motorL_PWM, OUTPUT);
-  pinMode(motorL_phase, OUTPUT);
-  pinMode(distance_sensor, INPUT);
-  
-  // Initialize path length
-  pathLength = sizeof(path) / sizeof(path[0]);
-  
-  Serial.begin(9600);
+    // Initialize pins
+    for (int i = 0; i < 5; i++) pinMode(AnalogPin[i], INPUT);
+    pinMode(motorR_PWM, OUTPUT);
+    pinMode(motorR_phase, OUTPUT);
+    pinMode(motorL_PWM, OUTPUT);
+    pinMode(motorL_phase, OUTPUT);
+    pinMode(distance_sensor, INPUT);
+    
+    Serial.begin(9600);
+    
+    // Calculate the optimized path at startup
+    int numWaypoints = sizeof(originalPath) / sizeof(originalPath[0]);
+    
+    // If first waypoint is not 0, prepend 0 to the path
+    if (originalPath[0] != 0) {
+        int newPath[21];  // Temporary array for the new path
+        newPath[0] = 0;  // Start with node 0
+        for (int i = 0; i < numWaypoints; i++) {
+            newPath[i + 1] = originalPath[i];
+        }
+        findOptimalRoute(newPath, numWaypoints + 1, optimizedPath, optimizedPathLength);
+    } else {
+        findOptimalRoute(originalPath, numWaypoints, optimizedPath, optimizedPathLength);
+    }
+    pathOptimized = true;
+    
+    // Print the optimized route for debugging
+    Serial.println("Starting between nodes 0 and 4, facing 0");
+    printRoute(optimizedPath, optimizedPathLength);
 }
 
 void loop() {
-  startmotion();
-  if(motiondetection == true){
-    delay(800);
-  }
-  while(motiondetection == true){
   detectNode();
   lineFollowPID();
   checkObstacle();
   delay(2);
-  }
 }

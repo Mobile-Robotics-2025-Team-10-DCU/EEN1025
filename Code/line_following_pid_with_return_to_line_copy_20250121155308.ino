@@ -29,6 +29,18 @@ bool nodeDetected = false;
 bool parked = false;
 int nodes = 0;
 
+//innovation 
+bool motiondetection = false;
+unsigned long motionStartTime = 0;  
+const unsigned long motionThreshold = 1500;
+
+void startmotion() {
+  distance = analogRead(distance_sensor);
+  if (distance > 2200) {
+    motiondetection=true;
+    } 
+}
+
 //new code
 void stop_motor() {
   analogWrite(motorR_PWM,0);
@@ -194,7 +206,14 @@ void setup() {
 }
 
 void loop() {
-  
+
+  startmotion();
+
+  if(motiondetection == true){
+    delay(800);
+  }
+
+  while(motiondetection == true){
   nodeDetection();
   if (nodeDetected == true) {
     setMotorSpeed(0, 0);
@@ -206,6 +225,7 @@ void loop() {
     }*/
     BASE_SPEED = 120;
     nodeDetected = false;
+  }
   }
 
   followCorrection();

@@ -27,8 +27,8 @@ int distance = 0;
 // Navigation variables
 bool nodeDetected = false;
 int nodesVisited = 1;
-int currentNode = 0;
-int previousNode = 4;  // Robot starts from direction of node 4
+int currentNode = 4;
+int previousNode = 6;  // Robot starts from direction of node 4
 bool firstNode = true;  // Flag to handle first node specially
 
 // Path planning variables
@@ -323,9 +323,9 @@ void handleNode() {
     if (firstNode) {
         // Special handling for first node
         firstNode = false;
-        currentNode = 0;  // First node will be 0
-        previousNode = 4; // Coming from direction of node 4
-        nodesVisited = 0;
+        currentNode = 4;  // IT WAS JUST AT 4
+        previousNode = 6; // DIRECTION FROM NODE 6
+        nodesVisited = 1;
         
         // If 0 is not our first waypoint, we need to turn appropriately
         if (optimizedPath[0] != 0) {
@@ -421,7 +421,7 @@ void setup() {
     pathOptimized = true;
     
     // Print the optimized route for debugging
-    Serial.println("Starting between nodes 0 and 4, facing 0");
+    Serial.println("\nStarting between nodes 0 and 4, facing 0");
     printRoute(optimizedPath, optimizedPathLength);
 }
 

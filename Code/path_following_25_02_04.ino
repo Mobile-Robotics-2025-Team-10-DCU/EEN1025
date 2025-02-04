@@ -30,6 +30,18 @@ int nodesVisited = 0;
 int currentNode = -1;
 int previousNode = -1;
 
+//innovation motion start
+bool motiondetection = false;
+unsigned long motionStartTime = 0;  
+const unsigned long motionThreshold = 1500;
+
+void startmotion() {
+  distance = analogRead(distance_sensor);
+  if (distance > 2200) {
+    motiondetection=true;
+    } 
+}
+
 // Sample path (will be provided by server)
 int path[] = {3, 6, 1, 5, 0, 5, 2};  // Example path
 int pathLength;
@@ -263,8 +275,14 @@ void setup() {
 }
 
 void loop() {
+  startmotion();
+  if(motiondetection == true){
+    delay(800);
+  }
+  while(motiondetection == true){
   detectNode();
   lineFollowPID();
   checkObstacle();
   delay(2);
+  }
 }

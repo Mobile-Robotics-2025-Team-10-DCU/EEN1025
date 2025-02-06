@@ -32,7 +32,7 @@ int previousNode = 6;  // Robot starts from direction of node 4
 bool firstNode = true;  // Flag to handle first node specially
 
 // Path planning variables
-int originalPath[] = {3, 1, 4, 0, 2, 0};  // Original waypoints
+int originalPath[] = {0, 4, 0, 3, 2, 0, 1, 3, 2, 4, 0};  // Original waypoints
 int optimizedPath[21];  // Will store the complete optimized path
 int optimizedPathLength;
 bool pathOptimized = false;
@@ -316,28 +316,42 @@ String getNextTurn(int current, int prev, int next) {
 void handleNode() {
     if (!pathOptimized) {
         stop_motor();
-        while(1); // Safety stop if path not optimized
+        while(1);
         return;
     }
+
+    // Print debug information for every node detection
+    Serial.print("Node detected! Current node: ");
+    Serial.print(currentNode);
+    Serial.print(", Previous node: ");
+    Serial.print(previousNode);
+    Serial.print(", Nodes visited: ");
+    Serial.println(nodesVisited);
 
     if (firstNode) {
         // Special handling for first node
         firstNode = false;
-        currentNode = 4;  // IT WAS JUST AT 4
-        previousNode = 6; // DIRECTION FROM NODE 6
-        nodesVisited = 1;
+        currentNode = 0;  // We're at node 0
+        previousNode = 4; // Coming from direction of node 4
         
-        // If 0 is not our first waypoint, we need to turn appropriately
-        if (optimizedPath[0] != 0) {
-            String turn = getNextTurn(0, 4, optimizedPath[0]);
-            if (turn == "left") {
-                turnLeft();
-            } else if (turn == "right") {
-                turnRight();
-            } else if (turn == "around") {
-                turnAround();
-            }
+        // Get next node from optimized path
+        int nextNode = optimizedPath[1];
+        
+        String turn = getNextTurn(currentNode, previousNode, nextNode);
+        Serial.print("First node turn direction: ");
+        Serial.println(turn);
+        
+        if (turn == "left") {
+            turnLeft();
+        } else if (turn == "right") {
+            turnRight();
+        } else if (turn == "around") {
+            turnAround();
         }
+        
+        previousNode = currentNode;  // Update previous node
+        currentNode = nextNode;      // Update current node to where we're heading
+        nodesVisited = 1;
         return;
     }
 
@@ -347,11 +361,20 @@ void handleNode() {
         return;
     }
 
-    currentNode = optimizedPath[nodesVisited];
+    // Get next node from the path
     int nextNode = optimizedPath[nodesVisited + 1];
     
     // Get the turn direction based on current position and next node
     String turn = getNextTurn(currentNode, previousNode, nextNode);
+    
+    Serial.print("At node: ");
+    Serial.print(currentNode);
+    Serial.print(" from: ");
+    Serial.print(previousNode);
+    Serial.print(" to: ");
+    Serial.print(nextNode);
+    Serial.print(" turn: ");
+    Serial.println(turn);
     
     // Execute the turn
     if (turn == "left") {
@@ -366,14 +389,9 @@ void handleNode() {
         delay(300);
     }
     
-    previousNode = currentNode;
+    previousNode = currentNode;      // Update previous node before updating current
+    currentNode = nextNode;          // Update current node to where we're heading
     nodesVisited++;
-    
-    // Print debug information
-    Serial.print("Visited node: ");
-    Serial.print(currentNode);
-    Serial.print(" Next node: ");
-    Serial.println(nextNode);
 }
 
 void detectNode() {
@@ -423,6 +441,12 @@ void setup() {
     // Print the optimized route for debugging
     Serial.println("\nStarting between nodes 0 and 4, facing 0");
     printRoute(optimizedPath, optimizedPathLength);
+
+    // Initialize starting position correctly
+    currentNode = 0;     // Robot starts at node 0
+    previousNode = 4;    // Coming from direction of node 4
+    nodesVisited = 0;    // Start with 0 nodes visited
+    firstNode = true;    // Set first node flag
 }
 
 void loop() {

@@ -1,3 +1,6 @@
+//added in comments about rerouting
+//changed comments on code
+
 #include <Arduino.h>
 #include <WiFi.h>
 
@@ -34,6 +37,9 @@ int BASE_SPEED = 120;
 int distance_sensor = 16;
 int distance = 0;
 
+//obstacle detected
+bool obstacle_detected = false;
+
 // Navigation variables
 bool nodeDetected = false;
 int nodesVisited = 1;
@@ -42,6 +48,7 @@ int previousNode = 6;  // Robot starts from direction of node 4
 bool firstNode = true;  // Flag to handle first node specially
 
 // Path planning variables
+int originalPath[] = {3, 1, 4, 2, 0};  // Original waypoints
 int optimizedPath[21];  // Will store the complete optimized path
 int optimizedPathLength;
 bool pathOptimized = false;
@@ -220,6 +227,31 @@ void findOptimalRoute(int waypoints[], int numWaypoints, int finalPath[], int& f
     }
 }
 
+//function to handle route recalculation
+void reroute(int blocked_node1, int blocked_node2, int destination){
+  Serial.println("Obstacle detected. Recalculating new path...");
+  Serial.print("Obstacle detected between node ");
+  Serial.print(blocked_node1);
+  Serial.print(" and node ");
+  Serial.println(blocked_node2);
+
+  //mark path as blocked
+  nodeConnection[blocked_node1][blocked_node2] = 0;
+  nodeConnection[blocked_node2][blocked_node1] = 0;  //other direction
+
+  findShortestPath(currentNode,destination,optimizedPath,optimizedPathLength);
+
+  Serial.println("New Optimized Route:");
+  for (int i = 0; i < optimizedPathLength; i++) {
+      Serial.print(optimizedPath[i]);
+      if (i < optimizedPathLength - 1) Serial.print(" -> ");
+  }
+  Serial.println();
+
+  nodesVisited = 0;
+  firstNode = true;
+}
+
 // Function to print the route details
 void printRoute(int path[], int pathLength) {
     Serial.println("Optimal Route:");
@@ -301,12 +333,26 @@ void lineFollowPID() {
   setMotorSpeed(leftSpeed, rightSpeed);
 }
 
-void checkObstacle() {
+//include innovation function here
+void execute_innovation(){
+//servo movement 
+//small delay
+  Serial.println("Obstacle detected. Performing innovation!");
+}
+
+
+void checkObstacle() { //int nextNode, int destination - arguments
   distance = analogRead(distance_sensor);
   if (distance > 2800) {
     stop_motor();
+    execute_innovation();
     turnAround();
-  }
+
+      if (nodesVisited < optimizedPathLength - 1) {
+          int nextNode = optimizedPath[nodesVisited + 1]; // Find next target node
+          reroute(currentNode, nextNode, optimizedPath[optimizedPathLength - 1]);
+        }
+    } 
 }
 
 String getNextTurn(int current, int prev, int next) {

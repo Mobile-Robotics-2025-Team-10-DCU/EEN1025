@@ -1,0 +1,56 @@
+#define SERVO_PIN 14  // Define the pin for the servo
+
+void setup() {
+  pinMode(SERVO_PIN, OUTPUT);
+}
+
+// Function to generate PWM signal for servo without using Servo.h
+void writeServo(int angle) {
+  int pulseWidth = map(angle, 0, 180, 500, 2500);  // Convert angle to pulse width (500µs - 2500µs)
+  digitalWrite(SERVO_PIN, HIGH);
+  delayMicroseconds(pulseWidth);
+  digitalWrite(SERVO_PIN, LOW);
+  delay(10);  // Servo PWM frequency is ~50Hz (20ms period)
+}
+
+// Function to move servo from 0° → 90° → 0° → -90° → 0° (90=middle position)
+void runservo() {
+  delay(500);  
+  writeServo(90);  // Move to middle
+  delay(500);
+
+  // Move from 90° to 180° (Right)
+  for (int pos = 90; pos <= 180; pos++) {
+    writeServo(pos);
+    delay(15);
+  }
+  
+  delay(100);  // stop at right position
+  
+  // Move from 180° (Right) back to 90° 
+  for (int pos = 180; pos >= 90; pos--) {
+    writeServo(pos);
+    delay(15);
+  }
+
+  delay(500);  // stop at middle
+  
+  // Move from 90° to 0° (Left)
+  for (int pos = 90; pos >= 0; pos--) {
+    writeServo(pos);
+    delay(15);
+  }
+
+  delay(100);  // stop at left position
+  
+  // Move from 0° back to 90°
+  for (int pos = 0; pos<=90; pos++) {
+    writeServo(pos);
+    delay(15);
+  }
+}
+
+void loop() {
+  runservo();
+  delay(1000);
+}

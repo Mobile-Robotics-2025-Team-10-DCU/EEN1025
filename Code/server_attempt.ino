@@ -45,6 +45,7 @@ bool firstNode = true;  // Flag to handle first node specially
 int optimizedPath[21];  // Will store the complete optimized path
 int optimizedPathLength;
 bool pathOptimized = false;
+int target;
 
 // Node connection layout with distances
 const int nodeConnection[7][7] = {
@@ -357,6 +358,11 @@ void handleNode() {
         } else if (turn == "around") {
             turnAround();
         }
+        else {
+        // Go straight
+          setMotorSpeed(BASE_SPEED, BASE_SPEED);
+          delay(300);
+        }
         
         previousNode = currentNode;  // Update previous node
         currentNode = nextNode;      // Update current node to where we're heading
@@ -482,20 +488,17 @@ void setup() {
     
     Serial.begin(9600);
     
-    // Calculate the optimized path at startup
-    int numWaypoints = sizeof(originalPath) / sizeof(originalPath[0]);
+    connectToWiFi();
+    sendPostRequest(0);
+    String response = readResponse();
+    String body = getResponseBody(response);
+    target = body.toInt();
+    client.stop();
     
-    // If first waypoint is not 0, prepend 0 to the path
-    if (originalPath[0] != 0) {
-        int newPath[21];  // Temporary array for the new path
-        newPath[0] = 0;  // Start with node 0
-        for (int i = 0; i < numWaypoints; i++) {
-            newPath[i + 1] = originalPath[i];
-        }
-        findOptimalRoute(newPath, numWaypoints + 1, optimizedPath, optimizedPathLength);
-    } else {
-        findOptimalRoute(originalPath, numWaypoints, optimizedPath, optimizedPathLength);
-    }
+    int newPath[21];  // Temporary array for the new path
+    newPath[0] = 0;  // Start with node 0
+    newPath[1] = target;
+    findOptimalRoute(newPath, 1, optimizedPath, optimizedPathLength);
     pathOptimized = true;
     
     // Print the optimized route for debugging
@@ -511,6 +514,21 @@ void setup() {
 
 void loop() {
   detectNode();
+  if(currentNode == target) {
+    nodesVisited = 0;
+    connectToWiFi();
+    sendPostRequest(0);
+    String response = readResponse();
+    String body = getResponseBody(response);
+    target = body.toInt();
+    client.stop();
+    int newPath[21];  // Temporary array for the new path
+    newPath[0] = currentNode;
+    newPath[1] = target;
+    findOptimalRoute(newPath, 1, optimizedPath, optimizedPathLength);
+    pathOptimized = true;
+    printRoute(optimizedPath, optimizedPathLength);
+  }
   lineFollowPID();
   checkObstacle();
   delay(2);

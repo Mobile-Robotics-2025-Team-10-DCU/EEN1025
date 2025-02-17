@@ -365,7 +365,6 @@ void writeServo(int angle){
 }
 
 void runServo(){
-  pinMode(SERVO_PIN, OUTPUT);
   delay(500)
   writeServo(90);
   delay(500);
@@ -659,6 +658,7 @@ void setup() {
     pinMode(motorL_PWM, OUTPUT);
     pinMode(motorL_phase, OUTPUT);
     pinMode(distance_sensor, INPUT);
+    pinMode(SERVO_PIN, OUTPUT);
     
     Serial.begin(9600);
 

@@ -50,6 +50,9 @@ int target;
 
 bool parkingS = 0;
 
+//innovation
+#define SERVO_PIN 14 
+
 // Node connection layout with distances
 const int nodeConnection[7][7] = {
   {0, 0, 0, 0, 2, 2, 0},
@@ -353,11 +356,50 @@ void lineFollowPID() {
   setMotorSpeed(leftSpeed, rightSpeed);
 }
 
+void writeServo(int angle){
+  int pulseWidth = map(angle, 0, 180, 500, 2500);
+  digitalWrite(SERVO_PIN, HIGH);
+  delayMicroseconds(pulseWidth);
+  digitalWrite(SERVO_PIN, LOW);
+  delay(10);
+}
+
+void runServo(){
+  pinMode(SERVO_PIN, OUTPUT);
+  delay(500)
+  writeServo(90);
+  delay(500);
+  // Move from 90° to 180° (Right)
+  for (int pos = 90; pos <= 180; pos++) {
+    writeServo(pos);
+    delay(15);
+  }
+  delay(100); 
+  // Move from 180° (Right) back to 90° 
+  for (int pos = 180; pos >= 90; pos--) {
+    writeServo(pos);
+    delay(15);
+  }
+  delay(500); 
+  // Move from 90° to 0° (Left)
+  for (int pos = 90; pos >= 0; pos--) {
+    writeServo(pos);
+    delay(15);
+  }
+  delay(100); 
+  // Move from 0° back to 90°
+  for (int pos = 0; pos<=90; pos++) {
+    writeServo(pos);
+    delay(15);
+  }
+}
+
 void checkObstacle() {
   distance = analogRead(distance_sensor);
   if (distance > 3000) {
     stop_motor();
     turnAround();
+    runServo();
   }
 }
 

@@ -51,7 +51,7 @@ int target;
 bool parkingS = 0;
 
 //innovation
-#define SERVO_PIN 14 
+#define SERVO_PIN 1 
 
 // Node connection layout with distances
 const int nodeConnection[7][7] = {

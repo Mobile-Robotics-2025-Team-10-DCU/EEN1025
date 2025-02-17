@@ -1,8 +1,3 @@
-//this has a hardcoded path into it but also includes the wifi code
-//this needs to be updated with the server and path following code
-//trying to recalculate route when obstacle detected
-//testing with route 0,3 with obstacle inbetween 2 and 3
-
 #include <Arduino.h>
 #include <WiFi.h>
 
@@ -39,26 +34,24 @@ int BASE_SPEED = 120;
 int distance_sensor = 16;
 int distance = 0;
 
-//obstacle detected
-bool obstacle_detected = false;
-
-bool pathReversed = false;
-
 // Navigation variables
 bool nodeDetected = false;
 int nodesVisited = 1;
 int currentNode = 4;
 int previousNode = 6;  // Robot starts from direction of node 4
+int previousNode2;
 bool firstNode = true;  // Flag to handle first node specially
 
 // Path planning variables
-int originalPath[] = {0,3};  // Original waypoints
 int optimizedPath[21];  // Will store the complete optimized path
 int optimizedPathLength;
 bool pathOptimized = false;
+int target;
+
+bool parkingS = 0;
 
 // Node connection layout with distances
-int nodeConnection[7][7] = {
+const int nodeConnection[7][7] = {
   {0, 0, 0, 0, 2, 2, 0},
   {0, 0, 0, 0, 0, 2, 1},
   {0, 0, 0, 2, 0, 2, 0},
@@ -119,7 +112,7 @@ const int nodeTurns[7][7][7] = {
 
     // Node 5 (left)
     {{3,2,0,-1,-1,-1,-1},    // from 0 (to 2=right)
-     {1,3,2,-1,-1,-1,0},   // from 1 (to 6=straight)
+     {1,3,2,-1,-1,-1,-1},   // from 1 (to 6=straight)
      {0,1,3,-1,-1,-1,-1},   // from 2 (to 6=straight)
      {-1,-1,-1,-1,-1,-1,-1},  // from 3
      {-1,-1,-1,-1,-1,-1,-1},  // from 4
@@ -164,7 +157,7 @@ void getPath(int parent[], int dest, int path[], int& pathLength) {
 }
 
 // Function to find the shortest path between two nodes
-void findShortestPath(int start, int end, int path[], int& pathLength,bool reversePath = false) {
+void findShortestPath(int start, int end, int path[], int& pathLength) {
     const int V = 7; // Number of vertices
     int dist[V];     // Distance array
     bool visited[V]; // Visited array
@@ -179,20 +172,15 @@ void findShortestPath(int start, int end, int path[], int& pathLength,bool rever
     
     dist[start] = 0;
     
-    // Find shortest path for all vertices - changed
+    // Find shortest path for all vertices
     for (int count = 0; count < V - 1; count++) {
-        int u = -1, min = INT_MAX;
-        for (int v = 0; v < V; v++) {
-            if (!visited[v] && dist[v] < min) {
-                min = dist[v];
-                u = v;
-            }
-        }
-        if (u == -1) break;
+        int u = minDistance(dist, visited, V);
         visited[u] = true;
-
+        
         for (int v = 0; v < V; v++) {
-            if (!visited[v] && nodeConnection[u][v] && dist[u] + nodeConnection[u][v] < dist[v]) {
+            if (!visited[v] && nodeConnection[u][v] && 
+                dist[u] != INT_MAX && 
+                dist[u] + nodeConnection[u][v] < dist[v]) {
                 dist[v] = dist[u] + nodeConnection[u][v];
                 parent[v] = u;
             }
@@ -201,19 +189,6 @@ void findShortestPath(int start, int end, int path[], int& pathLength,bool rever
     
     // Get the path
     pathLength = 0;
-    int current = end;
-    while (current != -1) {
-        path[pathLength++] = current;
-        current = parent[current];
-    }
-
-    if (reversePath) {
-        for (int i = 0; i < pathLength / 2; i++) {
-            int temp = path[i];
-            path[i] = path[pathLength - i - 1];
-            path[pathLength - i - 1] = temp;
-        }
-    }
     getPath(parent, end, path, pathLength);
 }
 
@@ -249,33 +224,6 @@ void findOptimalRoute(int waypoints[], int numWaypoints, int finalPath[], int& f
     }
 }
 
-//function to handle route recalculation
-void reroute(int blocked_node1, int blocked_node2, int destination){
-  Serial.println("Obstacle detected. Recalculating new path...");
-  Serial.print("Obstacle detected between node ");
-  Serial.print(blocked_node1);
-  Serial.print(" and node ");
-  Serial.println(blocked_node2);
-
-  //mark path as blocked
-  nodeConnection[blocked_node1][blocked_node2] = 0;
-  nodeConnection[blocked_node2][blocked_node1] = 0;  //other direction
-
-  findShortestPath(currentNode,destination,optimizedPath,optimizedPathLength,true);
-
-  Serial.println("New Optimized Route:");
-  for (int i = 0; i < optimizedPathLength; i++) {
-      Serial.print(optimizedPath[i]);
-      if (i < optimizedPathLength - 1) Serial.print(" -> ");
-  }
-  Serial.println();
-
-  nodesVisited = 0;
-  firstNode = true;
-  pathReversed = true;
-  obstacle_detected = false;
-}
-
 // Function to print the route details
 void printRoute(int path[], int pathLength) {
     Serial.println("Optimal Route:");
@@ -304,31 +252,79 @@ void stop_motor() {
 void turnLeft() {
   setMotorSpeed(150, 150);
   delay(300);
+  setMotorSpeed(0, 0);
+  delay(200);
   digitalWrite(motorR_phase, HIGH);
   digitalWrite(motorL_phase, LOW);
   analogWrite(motorR_PWM, 150);
   analogWrite(motorL_PWM, 145);
-  delay(300);
+  delay(450);
+  digitalWrite(motorR_phase, LOW);
+  digitalWrite(motorL_phase, LOW);
+  analogWrite(motorR_PWM, 0);
+  analogWrite(motorL_PWM, 0);
 }
 
 void turnRight() {
   setMotorSpeed(150, 150);
   delay(300);
+  setMotorSpeed(0, 0);
+  delay(200);
   digitalWrite(motorR_phase, LOW);
   digitalWrite(motorL_phase, HIGH);
   analogWrite(motorR_PWM, 145);
   analogWrite(motorL_PWM, 150);
+  delay(450);
+  digitalWrite(motorR_phase, LOW);
+  digitalWrite(motorL_phase, LOW);
+  analogWrite(motorR_PWM, 0);
+  analogWrite(motorL_PWM, 0);
+}
+
+void turnPLeft() {
+  setMotorSpeed(150, 150);
   delay(300);
+  setMotorSpeed(0, 0);
+  delay(200);
+  digitalWrite(motorR_phase, HIGH);
+  digitalWrite(motorL_phase, LOW);
+  analogWrite(motorR_PWM, 150);
+  analogWrite(motorL_PWM, 145);
+  delay(550);
+  digitalWrite(motorR_phase, LOW);
+  digitalWrite(motorL_phase, LOW);
+  analogWrite(motorR_PWM, 0);
+  analogWrite(motorL_PWM, 0);
+}
+
+void turnPRight() {
+  setMotorSpeed(150, 150);
+  delay(300);
+  setMotorSpeed(0, 0);
+  delay(200);
+  digitalWrite(motorR_phase, LOW);
+  digitalWrite(motorL_phase, HIGH);
+  analogWrite(motorR_PWM, 145);
+  analogWrite(motorL_PWM, 150);
+  delay(550);
+  digitalWrite(motorR_phase, LOW);
+  digitalWrite(motorL_phase, LOW);
+  analogWrite(motorR_PWM, 0);
+  analogWrite(motorL_PWM, 0);
 }
 
 void turnAround() {
-  setMotorSpeed(150, 150);
-  delay(300);
+  setMotorSpeed(0, 0);
+  delay(200);
   digitalWrite(motorR_phase, LOW);
   digitalWrite(motorL_phase, HIGH);
   analogWrite(motorR_PWM, 145);
   analogWrite(motorL_PWM, 150);
-  delay(900);  // Double the time of a normal turn
+  delay(1000);  // Double the time of a normal turn
+  digitalWrite(motorR_phase, LOW);
+  digitalWrite(motorL_phase, LOW);
+  analogWrite(motorR_PWM, 0);
+  analogWrite(motorL_PWM, 0);
 }
 
 void lineFollowPID() {
@@ -357,28 +353,68 @@ void lineFollowPID() {
   setMotorSpeed(leftSpeed, rightSpeed);
 }
 
-//include innovation function here
-void execute_innovation(){
-//servo movement 
-//small delay
-}
+void innovation(){}
 
-
-void checkObstacle(int currentNode,int nextNode, int destination) { 
+void checkObstacle() {
   distance = analogRead(distance_sensor);
-  if (distance > 2800) {
-    obstacle_detected = true;
+  obstacle_detected = false;
+  if (distance > 3000) {
     stop_motor();
-    Serial.println("Obstacle detected.");
-    Serial.println();
-    turnAround(); 
-    reroute(currentNode, nextNode, destination);
-    } 
+    obstacle_detected = true;
+    rerouteObstacle(currentNode,nextNode,destination);
+    innovation();
+    turnAround();
+  }
 }
 
-void updateNodeTracking(){
-  previousNode = currentNode;
-  currentNode = optimizedPath[0];   //first node in the new path after rerouting
+void rerouteObstace(int blocked_node1, int blocked_node2, int destination){
+  Serial.println("Obstacle detected. Recalculating new path...");
+  Serial.print("Obstacle detected between node ");
+  Serial.print(blocked_node1);
+  Serial.print(" and node ");
+  Serial.println(blocked_node2);
+
+  //mark path as blocked
+  nodeConnection[blocked_node1][blocked_node2] = 0;
+  nodeConnection[blocked_node2][blocked_node1] = 0;  //other direction
+
+  findOptimalRoute(currentNode, originalPath[1]);
+  currentNode = optimizedPath[0];
+  
+  pathOptimized = true;
+
+  // Print the optimized route for debugging
+  Serial.println("\New route");
+  findShortestPath(currentNode, destination, newpath, newpathLength)
+  printRoute(optimizedPath, optimizedPathLength);
+
+}
+
+void returnToLine() {
+  bool lineDetected = false;
+
+  for (int i = 0; i < 5; i++) {
+    AnalogValue[i] = analogRead(AnalogPin[i]);
+    AnalogValueMinus[i] = 5000 - AnalogValue[i];
+    if (AnalogValueMinus[i] > 2500) {
+      lineDetected = true;
+      break;
+    }
+    else {
+      lineDetected = false;
+    }
+  }
+
+  if (lineDetected) {
+    lineFollowPID();
+  } else {
+    digitalWrite(motorR_phase, HIGH);
+    digitalWrite(motorL_phase, HIGH);
+    setMotorSpeed(100, 100);
+    delay(500);
+    setMotorSpeed(0, 0);
+    delay(200);
+  }
 }
 
 String getNextTurn(int current, int prev, int next) {
@@ -412,8 +448,6 @@ void handleNode() {
     if (firstNode) {
         // Special handling for first node
         firstNode = false;
-        currentNode = 0;  // We're at node 0
-        previousNode = 4; // Coming from direction of node 4
         
         // Get next node from optimized path
         int nextNode = optimizedPath[1];
@@ -422,6 +456,10 @@ void handleNode() {
         Serial.print("First node turn direction: ");
         Serial.println(turn);
         
+        if ((parkingS == 1) && (currentNode == 6)) {
+          parking();
+        }
+
         if (turn == "left") {
             turnLeft();
         } else if (turn == "right") {
@@ -429,7 +467,13 @@ void handleNode() {
         } else if (turn == "around") {
             turnAround();
         }
+        else {
+        // Go straight
+          setMotorSpeed(BASE_SPEED, BASE_SPEED);
+          delay(200);
+        }
         
+        previousNode2 = previousNode;
         previousNode = currentNode;  // Update previous node
         currentNode = nextNode;      // Update current node to where we're heading
         nodesVisited = 1;
@@ -456,7 +500,11 @@ void handleNode() {
     Serial.print(nextNode);
     Serial.print(" turn: ");
     Serial.println(turn);
-    
+
+    if ((parkingS == 1) && (currentNode == 6)) {
+      parking();
+    }
+
     // Execute the turn
     if (turn == "left") {
         turnLeft();
@@ -467,9 +515,10 @@ void handleNode() {
     } else {
         // Go straight
         setMotorSpeed(BASE_SPEED, BASE_SPEED);
-        delay(300);
+        delay(200);
     }
     
+    previousNode2 = previousNode;
     previousNode = currentNode;      // Update previous node before updating current
     currentNode = nextNode;          // Update current node to where we're heading
     nodesVisited++;
@@ -482,13 +531,59 @@ void detectNode() {
     AnalogValueMinus[i] = 5000 - AnalogValue[i];
     totalValue += AnalogValueMinus[i];
   }
-
-  if (totalValue > 15800 && !nodeDetected) {
+  if (totalValue > 16500 && !nodeDetected) {
     nodeDetected = true;
     handleNode();
-    delay(200);  // Debounce delay
-  } else if (totalValue <= 15800) {
+    delay(2);  // Debounce delay
+  } else if (totalValue <= 16500) {
     nodeDetected = false;
+  }
+}
+
+void parking() {
+  if (previousNode == 1) {
+    while (true) {
+      setMotorSpeed(150, 145);
+      distance = analogRead(distance_sensor);
+      Serial.print(distance);
+      if (distance > 3000) {
+        stop_motor();
+        connectToWiFi();
+        sendPostRequest(currentNode);
+        while(1);
+        return;
+      }
+    }
+  }
+  if (previousNode == 3) {
+    turnPLeft();
+    while (true) {
+      setMotorSpeed(150, 145);
+      distance = analogRead(distance_sensor);
+      Serial.print(distance);
+      if (distance > 3000) {
+        stop_motor();
+        connectToWiFi();
+        sendPostRequest(currentNode);
+        while(1);
+        return;
+      }
+    }
+  }
+  if (previousNode == 4) {
+    turnPRight();
+    while (true) {
+      setMotorSpeed(150, 145);
+      distance = analogRead(distance_sensor);
+      Serial.print(distance);
+      if (distance > 3000) {
+        stop_motor();
+        connectToWiFi();
+        sendPostRequest(currentNode);
+        while(1);
+        return;
+      }
+    }
   }
 }
 
@@ -521,7 +616,7 @@ void sendPostRequest(int position) {
 
 String readResponse() {
   String response = "";
-  unsigned long timeout = millis() + 2000;
+  unsigned long timeout = millis() + 150;
   while (client.connected() && millis() < timeout) {
     while (client.available()) {
       response += (char)client.read();
@@ -544,7 +639,7 @@ String getResponseBody(String& response) {
 }
 
 void setup() {
-    // Initialize pins
+    // Initialize pins (unchanged)
     for (int i = 0; i < 5; i++) pinMode(AnalogPin[i], INPUT);
     pinMode(motorR_PWM, OUTPUT);
     pinMode(motorR_phase, OUTPUT);
@@ -553,25 +648,23 @@ void setup() {
     pinMode(distance_sensor, INPUT);
     
     Serial.begin(9600);
+
+    bool begin = true;
     
-    // Calculate the optimized path at startup
-    int numWaypoints = sizeof(originalPath) / sizeof(originalPath[0]);
+    connectToWiFi();
+    String response = readResponse();
+    String body = getResponseBody(response);
+    target = body.toInt();
+    client.stop();
     
-    // If first waypoint is not 0, prepend 0 to the path
-    if (originalPath[0] != 0) {
-        int newPath[21];  // Temporary array for the new path
-        newPath[0] = 0;  // Start with node 0
-        for (int i = 0; i < numWaypoints; i++) {
-            newPath[i + 1] = originalPath[i];
-        }
-        findOptimalRoute(newPath, numWaypoints + 1, optimizedPath, optimizedPathLength);
-    } else {
-        findOptimalRoute(originalPath, numWaypoints, optimizedPath, optimizedPathLength);
-    }
+    int newPath[21];
+    newPath[0] = 0;  // Start at current node (0)
+    newPath[1] = target;
+    findOptimalRoute(newPath, 2, optimizedPath, optimizedPathLength); // Corrected to 2 waypoints
     pathOptimized = true;
     
     // Print the optimized route for debugging
-    Serial.println("\nStarting between nodes 0 and 4, facing 0\n Inital Route:");
+    Serial.println("\nStarting at node 0, facing from node 4");
     printRoute(optimizedPath, optimizedPathLength);
 
     // Initialize starting position correctly
@@ -579,15 +672,51 @@ void setup() {
     previousNode = 4;    // Coming from direction of node 4
     nodesVisited = 0;    // Start with 0 nodes visited
     firstNode = true;    // Set first node flag
+
+    while (begin == true) {
+      distance = analogRead(distance_sensor);
+      if (distance > 3000) {
+        while (true) {
+          distance = analogRead(distance_sensor);
+          if (distance < 3000) {
+            begin = false;
+            delay(500);
+            return;
+          }
+        }
+      }
+    }
 }
 
 void loop() {
-  detectNode();
   lineFollowPID();
-  if (optimizedPathLength > 1) {  // Ensure we have a valid path
-      int nextNode = optimizedPath[nodesVisited + 1]; // Get the next node in the path
-      int destination = optimizedPath[optimizedPathLength - 1];
-      checkObstacle(currentNode, nextNode,destination);
+  returnToLine();
+  checkObstacle();
+
+  if(currentNode == target) { 
+    connectToWiFi();
+    sendPostRequest(currentNode);  // Send current position as the arrived node
+    String response = readResponse();
+    String body = getResponseBody(response);
+    int newTarget = body.toInt();
+    client.stop();
+    if (newTarget == 5) {
+      newTarget = 6;
+      parkingS = 1;
+    }
+    int newPath[21];
+    newPath[0] = currentNode;  // Start from current position
+    newPath[1] = newTarget;    // New target received
+    findOptimalRoute(newPath, 2, optimizedPath, optimizedPathLength); // 2 waypoints
+    target = newTarget;
+    pathOptimized = true;
+    printRoute(optimizedPath, optimizedPathLength);
+    
+    // Reset navigation variables for the new path
+    nodesVisited = 0;
+    firstNode = true;   // Treat the next node as the first in the new path
   }
+
+  detectNode();
   delay(2);
 }

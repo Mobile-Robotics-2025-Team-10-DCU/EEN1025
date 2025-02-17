@@ -42,6 +42,8 @@ int previousNode = 6;  // Robot starts from direction of node 4
 int previousNode2;
 bool firstNode = true;  // Flag to handle first node specially
 
+bool obstacle_detected = false;
+
 // Path planning variables
 int optimizedPath[21];  // Will store the complete optimized path
 int optimizedPathLength;
@@ -51,7 +53,7 @@ int target;
 bool parkingS = 0;
 
 // Node connection layout with distances
-const int nodeConnection[7][7] = {
+int nodeConnection[7][7] = {
   {0, 0, 0, 0, 2, 2, 0},
   {0, 0, 0, 0, 0, 2, 1},
   {0, 0, 0, 2, 0, 2, 0},
@@ -355,7 +357,7 @@ void lineFollowPID() {
 
 void innovation(){}
 
-void checkObstacle() {
+void checkObstacle(int currentNode, int nextNode, int destination) {
   distance = analogRead(distance_sensor);
   obstacle_detected = false;
   if (distance > 3000) {
@@ -367,7 +369,7 @@ void checkObstacle() {
   }
 }
 
-void rerouteObstace(int blocked_node1, int blocked_node2, int destination){
+void rerouteObstacle(int blocked_node1, int blocked_node2, int destination){
   Serial.println("Obstacle detected. Recalculating new path...");
   Serial.print("Obstacle detected between node ");
   Serial.print(blocked_node1);
@@ -720,3 +722,4 @@ void loop() {
   detectNode();
   delay(2);
 }
+

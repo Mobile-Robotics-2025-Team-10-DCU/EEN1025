@@ -47,12 +47,13 @@ int optimizedPath[21];  // Will store the complete optimized path
 int optimizedPathLength;
 bool pathOptimized = false;
 int target;
+int oldTarget;
+bool t = 0;
 
 bool parkingS = 0;
 
 //innovation
 #define SERVO_PIN 1 
-int obstacleCount = 0;
 
 // Node connection layout with distances
 int nodeConnection[7][7] = {
@@ -294,7 +295,7 @@ void turnPLeft() {
   digitalWrite(motorL_phase, LOW);
   analogWrite(motorR_PWM, 150);
   analogWrite(motorL_PWM, 145);
-  delay(450);
+  delay(400);
   digitalWrite(motorR_phase, LOW);
   digitalWrite(motorL_phase, LOW);
   analogWrite(motorR_PWM, 0);
@@ -310,7 +311,7 @@ void turnPRight() {
   digitalWrite(motorL_phase, HIGH);
   analogWrite(motorR_PWM, 145);
   analogWrite(motorL_PWM, 150);
-  delay(450);
+  delay(550); //550
   digitalWrite(motorR_phase, LOW);
   digitalWrite(motorL_phase, LOW);
   analogWrite(motorR_PWM, 0);
@@ -362,42 +363,48 @@ void writeServo(int angle){
   digitalWrite(SERVO_PIN, HIGH);
   delayMicroseconds(pulseWidth);
   digitalWrite(SERVO_PIN, LOW);
-  delay(5);
+  delay(10);
 }
 
-void servoLeft(){
+void runServo(){
+  delay(500);
   writeServo(90);
-  for (int pos = 90; pos >= 0; pos--) {
-    writeServo(pos);
-    delay(10);
-  }
-    for (int pos = 0; pos<=90; pos++) {
-    writeServo(pos);
-    delay(10);
-  }
-}
-
-void servoRight(){
-  writeServo(90);
+  delay(500);
+  // Move from 90° to 180° (Right)
   for (int pos = 90; pos <= 180; pos++) {
     writeServo(pos);
-    delay(10);
+    delay(15);
   }
-    for (int pos = 0; pos<=90; pos++) {
+  delay(100); 
+  // Move from 180° (Right) back to 90° 
+  for (int pos = 180; pos >= 90; pos--) {
     writeServo(pos);
-    delay(10);
+    delay(15);
   }
+  delay(500); 
+  // Move from 90° to 0° (Left)
+  for (int pos = 90; pos >= 0; pos--) {
+    writeServo(pos);
+    delay(15);
+  }
+  delay(100); 
+  // Move from 0° back to 90°
+  for (int pos = 0; pos<=90; pos++) {
+    writeServo(pos);
+    delay(15);
+  }
+  delay(500);
 }
 
 void checkObstacle() {
   distance = analogRead(distance_sensor);
-  if (distance > 3000) {
+  if (distance > 3200) {
     stop_motor();
     digitalWrite(motorR_phase, HIGH);
     digitalWrite(motorL_phase, HIGH);
     analogWrite(motorR_PWM, 150);
     analogWrite(motorL_PWM, 150);
-    delay(200);
+    delay(300);
 
     // Block the current path segment
     nodeConnection[previousNode][currentNode] = 0;
@@ -405,6 +412,30 @@ void checkObstacle() {
     
     turnAround();
     
+    if(currentNode == oldTarget) {
+      t = 1;
+      int tempNode = currentNode;
+      currentNode = previousNode;
+      previousNode = tempNode;
+
+      int newPath[21];
+      newPath[0] = currentNode;
+      newPath[1] = oldTarget;
+      findOptimalRoute(newPath, 2, optimizedPath, optimizedPathLength);
+      pathOptimized = true;
+    
+      // Reset navigation state
+      nodesVisited = 0;
+      firstNode = true;
+    
+      Serial.println("Rerouting due to obstacle. New path:");
+      printRoute(optimizedPath, optimizedPathLength);
+
+      setMotorSpeed(0, 0);
+      runServo();
+      return;
+    }
+
     // Swap current and previous nodes after turning around
     int tempNode = currentNode;
     currentNode = previousNode;
@@ -425,13 +456,7 @@ void checkObstacle() {
     printRoute(optimizedPath, optimizedPathLength);
 
     setMotorSpeed(0, 0);
-    obstacleCount++;
-    if (obstacleCount == 1){
-      servoLeft();
-    }
-    if (obstacleCount == 2){
-      servoRight();
-    }
+    runServo();
   }
 }
 
@@ -598,7 +623,7 @@ void parking() {
       if (distance > 3000) {
         stop_motor();
         connectToWiFi();
-        sendPostRequest(currentNode);
+        sendPostRequest(5);
         while(1);
         return;
       }
@@ -613,7 +638,7 @@ void parking() {
       if (distance > 3000) {
         stop_motor();
         connectToWiFi();
-        sendPostRequest(currentNode);
+        sendPostRequest(5);
         while(1);
         return;
       }
@@ -628,7 +653,7 @@ void parking() {
       if (distance > 3000) {
         stop_motor();
         connectToWiFi();
-        sendPostRequest(currentNode);
+        sendPostRequest(5);
         while(1);
         return;
       }
@@ -743,7 +768,9 @@ void loop() {
   lineFollowPID();
   checkObstacle();
 
-  if(currentNode == target) { 
+  if(currentNode == target && t == 0) { 
+    oldTarget = currentNode;
+    setMotorSpeed(0, 0);
     connectToWiFi();
     sendPostRequest(currentNode);  // Send current position as the arrived node
     String response = readResponse();
@@ -765,6 +792,20 @@ void loop() {
     // Reset navigation variables for the new path
     nodesVisited = 0;
     firstNode = true;   // Treat the next node as the first in the new path
+  }
+
+  if(currentNode == oldTarget && t == 1) { 
+    int newPath[21];
+    newPath[0] = currentNode;  // Start from current position
+    newPath[1] = target;    // New target received
+    findOptimalRoute(newPath, 2, optimizedPath, optimizedPathLength); // 2 waypoints
+    pathOptimized = true;
+    printRoute(optimizedPath, optimizedPathLength);
+    
+    // Reset navigation variables for the new path
+    nodesVisited = 0;
+    firstNode = true;   // Treat the next node as the first in the new path
+    t = 0;
   }
 
   detectNode();

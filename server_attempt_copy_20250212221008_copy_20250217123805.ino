@@ -21,6 +21,9 @@ int motorL_phase = 38;
 int motorR_PWM = 39;
 int motorR_phase = 20;
 
+int ledPin1 = 35;
+int ledPin2 = 0;
+
 // PID constants
 float Kp = 200;
 float Ki = 0.01;
@@ -51,9 +54,11 @@ int oldTarget;
 bool t = 0;
 
 bool parkingS = 0;
+bool parkingSTemp = 0;
 
 //innovation
 #define SERVO_PIN 1 
+int obstacleCount = 0;
 
 // Node connection layout with distances
 int nodeConnection[7][7] = {
@@ -295,7 +300,7 @@ void turnPLeft() {
   digitalWrite(motorL_phase, LOW);
   analogWrite(motorR_PWM, 150);
   analogWrite(motorL_PWM, 145);
-  delay(400);
+  delay(300);
   digitalWrite(motorR_phase, LOW);
   digitalWrite(motorL_phase, LOW);
   analogWrite(motorR_PWM, 0);
@@ -363,37 +368,35 @@ void writeServo(int angle){
   digitalWrite(SERVO_PIN, HIGH);
   delayMicroseconds(pulseWidth);
   digitalWrite(SERVO_PIN, LOW);
-  delay(10);
+  delay(5);
 }
 
-void runServo(){
-  delay(500);
+void runRight() {
   writeServo(90);
-  delay(500);
   // Move from 90° to 180° (Right)
   for (int pos = 90; pos <= 180; pos++) {
     writeServo(pos);
     delay(15);
   }
-  delay(100); 
   // Move from 180° (Right) back to 90° 
   for (int pos = 180; pos >= 90; pos--) {
     writeServo(pos);
     delay(15);
   }
-  delay(500); 
+}
+
+void runLeft() {
+  writeServo(90);
   // Move from 90° to 0° (Left)
   for (int pos = 90; pos >= 0; pos--) {
     writeServo(pos);
     delay(15);
   }
-  delay(100); 
   // Move from 0° back to 90°
   for (int pos = 0; pos<=90; pos++) {
     writeServo(pos);
     delay(15);
   }
-  delay(500);
 }
 
 void checkObstacle() {
@@ -411,9 +414,20 @@ void checkObstacle() {
     nodeConnection[currentNode][previousNode] = 0;
     
     turnAround();
+    digitalWrite(motorR_phase, HIGH);
+    digitalWrite(motorL_phase, HIGH);
+    analogWrite(motorR_PWM, 150);
+    analogWrite(motorL_PWM, 150);
+    delay(100);
+
+    setMotorSpeed(0, 0);
     
     if(currentNode == oldTarget) {
       t = 1;
+      if (parkingS == 1) {
+        parkingSTemp = 1;
+        parkingS = 0;
+      }
       int tempNode = currentNode;
       currentNode = previousNode;
       previousNode = tempNode;
@@ -432,8 +446,14 @@ void checkObstacle() {
       printRoute(optimizedPath, optimizedPathLength);
 
       setMotorSpeed(0, 0);
-      runServo();
-      return;
+      obstacleCount++;
+      if (obstacleCount == 1) {
+        runLeft();
+      }
+      if (obstacleCount == 2) {
+        runRight();
+      }
+        return;
     }
 
     // Swap current and previous nodes after turning around
@@ -456,7 +476,13 @@ void checkObstacle() {
     printRoute(optimizedPath, optimizedPathLength);
 
     setMotorSpeed(0, 0);
-    runServo();
+    obstacleCount++;
+    if (obstacleCount == 1) {
+      runLeft();
+    }
+    if (obstacleCount == 2) {
+      runRight();
+    }
   }
 }
 
@@ -605,11 +631,11 @@ void detectNode() {
     AnalogValueMinus[i] = 5000 - AnalogValue[i];
     totalValue += AnalogValueMinus[i];
   }
-  if (totalValue > 17500 && !nodeDetected) {
+  if (totalValue > 18000 && !nodeDetected) {
     nodeDetected = true;
     handleNode();
     delay(2);  // Debounce delay
-  } else if (totalValue <= 17500) {
+  } else if (totalValue <= 18000) {
     nodeDetected = false;
   }
 }
@@ -620,7 +646,7 @@ void parking() {
       setMotorSpeed(150, 145);
       distance = analogRead(distance_sensor);
       Serial.print(distance);
-      if (distance > 3000) {
+      if (distance > 2700) {
         stop_motor();
         connectToWiFi();
         sendPostRequest(5);
@@ -635,7 +661,7 @@ void parking() {
       setMotorSpeed(150, 145);
       distance = analogRead(distance_sensor);
       Serial.print(distance);
-      if (distance > 3000) {
+      if (distance > 2700) {
         stop_motor();
         connectToWiFi();
         sendPostRequest(5);
@@ -650,7 +676,7 @@ void parking() {
       setMotorSpeed(150, 145);
       distance = analogRead(distance_sensor);
       Serial.print(distance);
-      if (distance > 3000) {
+      if (distance > 2700) {
         stop_motor();
         connectToWiFi();
         sendPostRequest(5);
@@ -713,6 +739,16 @@ String getResponseBody(String& response) {
 }
 
 void setup() {
+  int nodeConnection[7][7] = {
+    {0, 0, 0, 0, 2, 2, 0},
+    {0, 0, 0, 0, 0, 2, 1},
+    {0, 0, 0, 2, 0, 2, 0},
+    {0, 0, 2, 0, 0, 0, 4},
+    {2, 0, 0, 0, 0, 0, 4},
+    {2, 2, 2, 0, 0, 0, 0},
+    {0, 1, 0, 4, 4, 0, 0}
+  };
+    
     // Initialize pins (unchanged)
     for (int i = 0; i < 5; i++) pinMode(AnalogPin[i], INPUT);
     pinMode(motorR_PWM, OUTPUT);
@@ -721,6 +757,8 @@ void setup() {
     pinMode(motorL_phase, OUTPUT);
     pinMode(distance_sensor, INPUT);
     pinMode(SERVO_PIN, OUTPUT);
+    pinMode(ledPin1, OUTPUT);
+    pinMode(ledPin2, OUTPUT);
     
     Serial.begin(9600);
 
@@ -771,12 +809,14 @@ void loop() {
   if(currentNode == target && t == 0) { 
     oldTarget = currentNode;
     setMotorSpeed(0, 0);
+    digitalWrite(ledPin1, HIGH);
     connectToWiFi();
     sendPostRequest(currentNode);  // Send current position as the arrived node
     String response = readResponse();
     String body = getResponseBody(response);
     int newTarget = body.toInt();
     client.stop();
+    digitalWrite(ledPin1, LOW);
     if (newTarget == 5) {
       newTarget = 6;
       parkingS = 1;
@@ -806,8 +846,15 @@ void loop() {
     nodesVisited = 0;
     firstNode = true;   // Treat the next node as the first in the new path
     t = 0;
+    parkingS = parkingSTemp;
   }
 
   detectNode();
   delay(2);
+  if (parkingS == 1) {
+    digitalWrite(ledPin2, HIGH);
+  }
+  else {
+    digitalWrite(ledPin2, LOW);
+  }
 }

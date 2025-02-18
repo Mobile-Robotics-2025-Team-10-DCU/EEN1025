@@ -52,6 +52,7 @@ bool parkingS = 0;
 
 //innovation
 #define SERVO_PIN 1 
+int obstacleCount = 0;
 
 // Node connection layout with distances
 int nodeConnection[7][7] = {
@@ -361,37 +362,31 @@ void writeServo(int angle){
   digitalWrite(SERVO_PIN, HIGH);
   delayMicroseconds(pulseWidth);
   digitalWrite(SERVO_PIN, LOW);
-  delay(10);
+  delay(5);
 }
 
-void runServo(){
-  delay(500);
+void servoLeft(){
   writeServo(90);
-  delay(500);
-  // Move from 90° to 180° (Right)
-  for (int pos = 90; pos <= 180; pos++) {
-    writeServo(pos);
-    delay(15);
-  }
-  delay(100); 
-  // Move from 180° (Right) back to 90° 
-  for (int pos = 180; pos >= 90; pos--) {
-    writeServo(pos);
-    delay(15);
-  }
-  delay(500); 
-  // Move from 90° to 0° (Left)
   for (int pos = 90; pos >= 0; pos--) {
     writeServo(pos);
-    delay(15);
+    delay(10);
   }
-  delay(100); 
-  // Move from 0° back to 90°
-  for (int pos = 0; pos<=90; pos++) {
+    for (int pos = 0; pos<=90; pos++) {
     writeServo(pos);
-    delay(15);
+    delay(10);
   }
-  delay(500);
+}
+
+void servoRight(){
+  writeServo(90);
+  for (int pos = 90; pos <= 180; pos++) {
+    writeServo(pos);
+    delay(10);
+  }
+    for (int pos = 0; pos<=90; pos++) {
+    writeServo(pos);
+    delay(10);
+  }
 }
 
 void checkObstacle() {
@@ -430,7 +425,13 @@ void checkObstacle() {
     printRoute(optimizedPath, optimizedPathLength);
 
     setMotorSpeed(0, 0);
-    runServo();
+    obstacleCount++;
+    if (obstacleCount == 1){
+      servoLeft();
+    }
+    if (obstacleCount == 2){
+      servoRight();
+    }
   }
 }
 

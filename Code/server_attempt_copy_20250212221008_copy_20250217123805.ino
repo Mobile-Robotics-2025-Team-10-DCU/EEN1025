@@ -261,7 +261,7 @@ void turnLeft() {
   digitalWrite(motorL_phase, LOW);
   analogWrite(motorR_PWM, 150);
   analogWrite(motorL_PWM, 145);
-  delay(450);
+  delay(350);
   digitalWrite(motorR_phase, LOW);
   digitalWrite(motorL_phase, LOW);
   analogWrite(motorR_PWM, 0);
@@ -277,7 +277,7 @@ void turnRight() {
   digitalWrite(motorL_phase, HIGH);
   analogWrite(motorR_PWM, 145);
   analogWrite(motorL_PWM, 150);
-  delay(450);
+  delay(350);
   digitalWrite(motorR_phase, LOW);
   digitalWrite(motorL_phase, LOW);
   analogWrite(motorR_PWM, 0);
@@ -293,7 +293,7 @@ void turnPLeft() {
   digitalWrite(motorL_phase, LOW);
   analogWrite(motorR_PWM, 150);
   analogWrite(motorL_PWM, 145);
-  delay(550);
+  delay(450);
   digitalWrite(motorR_phase, LOW);
   digitalWrite(motorL_phase, LOW);
   analogWrite(motorR_PWM, 0);
@@ -309,7 +309,7 @@ void turnPRight() {
   digitalWrite(motorL_phase, HIGH);
   analogWrite(motorR_PWM, 145);
   analogWrite(motorL_PWM, 150);
-  delay(550);
+  delay(450);
   digitalWrite(motorR_phase, LOW);
   digitalWrite(motorL_phase, LOW);
   analogWrite(motorR_PWM, 0);
@@ -486,6 +486,8 @@ void handleNode() {
           delay(200);
         }
         
+        delay(200);
+
         previousNode2 = previousNode;
         previousNode = currentNode;  // Update previous node
         currentNode = nextNode;      // Update current node to where we're heading
@@ -531,6 +533,8 @@ void handleNode() {
         delay(200);
     }
     
+    delay(200);
+
     previousNode2 = previousNode;
     previousNode = currentNode;      // Update previous node before updating current
     currentNode = nextNode;          // Update current node to where we're heading
@@ -544,11 +548,11 @@ void detectNode() {
     AnalogValueMinus[i] = 5000 - AnalogValue[i];
     totalValue += AnalogValueMinus[i];
   }
-  if (totalValue > 16500 && !nodeDetected) {
+  if (totalValue > 17200 && !nodeDetected) {
     nodeDetected = true;
     handleNode();
     delay(2);  // Debounce delay
-  } else if (totalValue <= 16500) {
+  } else if (totalValue <= 17200) {
     nodeDetected = false;
   }
 }
@@ -629,7 +633,7 @@ void sendPostRequest(int position) {
 
 String readResponse() {
   String response = "";
-  unsigned long timeout = millis() + 150;
+  unsigned long timeout = millis() + 50;
   while (client.connected() && millis() < timeout) {
     while (client.available()) {
       response += (char)client.read();
@@ -703,8 +707,8 @@ void setup() {
 }
 
 void loop() {
-  lineFollowPID();
   returnToLine();
+  lineFollowPID();
   checkObstacle();
 
   if(currentNode == target) { 

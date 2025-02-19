@@ -1,4 +1,4 @@
-//straight driving needs to be changed
+//147,143
 
 #include <Arduino.h>
 #include <WiFi.h>
@@ -649,7 +649,7 @@ void detectNode() {
 void parking() {
   if (previousNode == 1) {
     while (true) {
-      setMotorSpeed(147, 145);
+      setMotorSpeed(147, 143);
       distance = analogRead(distance_sensor);
       Serial.print(distance);
       if (distance > 2850) {
@@ -664,7 +664,7 @@ void parking() {
   if (previousNode == 3) {
     turnPLeft();
     while (true) {
-      setMotorSpeed(147, 145);
+      setMotorSpeed(147, 143);
       distance = analogRead(distance_sensor);
       Serial.print(distance);
       if (distance > 2850) {
@@ -679,7 +679,7 @@ void parking() {
   if (previousNode == 4) {
     turnPRight();
     while (true) {
-      setMotorSpeed(147, 145);
+      setMotorSpeed(147, 143);
       distance = analogRead(distance_sensor);
       Serial.print(distance);
       if (distance > 2850) {
